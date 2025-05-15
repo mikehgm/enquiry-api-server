@@ -1,9 +1,12 @@
 ﻿using Enquiry.API.Dtos;
+using Enquiry.API.Hubs;
 using Enquiry.API.Models;
+using Enquiry.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -21,9 +24,14 @@ namespace Enquiry.API.Controllers
     public class EnquiryDataController : ControllerBase
     {
         private readonly EnquiryDbContext _context;
-        public EnquiryDataController(EnquiryDbContext context)
+        private readonly IHubContext<EnquiryHub> _hub;
+        private readonly EmailService _emailService;
+
+        public EnquiryDataController(EnquiryDbContext context, IHubContext<EnquiryHub> hub, EmailService emailService)
         {
             _context = context;
+            _hub = hub;
+            _emailService = emailService;
         }
 
         [HttpGet("GetAllStatus")]
@@ -78,15 +86,16 @@ namespace Enquiry.API.Controllers
                 resolution = dto.Resolution,
                 costo = dto.Costo,
                 dueDate = TryParseDate(dto.DueDate),
-                createdBy = User.FindFirst(ClaimTypes.Email)?.Value ?? "Unknown",
+                createdBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown",
                 createdDate = DateTime.UtcNow,
                 folio = await GenerateFolioAsync()
             };
 
             _context.Enquiries.Add(enquiry);
             await _context.SaveChangesAsync();
+            await _hub.Clients.All.SendAsync("EnquiryChanged");
 
-            return Ok(new { message = "Enquiry creado con éxito", folio = enquiry.folio });
+            return Ok(enquiry);
         }
 
         [HttpPut("UpdateEnquiry")]
@@ -109,27 +118,60 @@ namespace Enquiry.API.Controllers
             enquiry.resolution = dto.Resolution;
             enquiry.costo = dto.Costo;
             enquiry.dueDate = TryParseDate(dto.DueDate);
-            enquiry.updatedBy = User.FindFirst(ClaimTypes.Email)?.Value ?? "Unknown";
+            enquiry.updatedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
             enquiry.updatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            await _hub.Clients.All.SendAsync("EnquiryChanged");
 
             return Ok(new { message = "Enquiry actualizado correctamente" });
         }
 
         [HttpDelete("DeleteEnquiry/{enquiryId}")]
-        public bool? DeleteEnquiry(int enquiryId)
+        public async Task<IActionResult> DeleteEnquiry(int enquiryId)
         {
             var enquiry = _context.Enquiries.SingleOrDefault(m => m.enquiryId == enquiryId);
             if (enquiry == null)
             {
-                return false;
+                return BadRequest(new { message = "Enquiry ID requerido para actualizar." });
             }
 
             _context.Enquiries.Remove(enquiry);
             _context.SaveChanges();
-            return true;
+            await _hub.Clients.All.SendAsync("EnquiryChanged");
+            return Ok(new { message = "Enquiry eliminado correctamente" }); ;
         }
+
+        [HttpGet("GetUserClaims")]
+        public IActionResult GetUserClaims()
+        {
+            var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+            return Ok(claims);
+        }
+
+        [HttpPost("SendTicketEmail/{enquiryId}")]
+        public async Task<IActionResult> SendTicketEmail(int enquiryId)
+        {
+            var enquiry = await _context.Enquiries.FindAsync(enquiryId);
+            if (enquiry == null)
+            {
+                return NotFound(new { message = "Enquiry no encontrado." });
+            }
+
+            var htmlBody = EmailTemplateGenerator.GenerateTicketHtml(enquiry);
+            var subject = $"Tu ticket #{enquiry.folio}";
+
+            try
+            {
+                await _emailService.SendHtmlEmailAsync(enquiry.email, subject, htmlBody);
+                return Ok(new { message = "Correo enviado correctamente." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al enviar el correo.", error = ex.Message });
+            }
+        }
+
 
         private async Task<string> GenerateFolioAsync()
         {

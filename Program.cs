@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Enquiry.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +60,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<EmailService>();
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 app.UseCors("allowCors");
@@ -69,4 +72,5 @@ app.UseAuthorization();
 app.UseHttpsRedirection();
 
 app.MapControllers();
+app.MapHub<EnquiryHub>("/hubs/enquiry");
 app.Run();
