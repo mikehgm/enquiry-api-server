@@ -48,15 +48,31 @@ namespace Enquiry.API.Controllers
             return list;
         }
 
-        [HttpGet("GetAllEnquiries")]
-        public List<EnquiryModel> GetAllEnquiries()
+        [HttpGet("GetEnquiries")]
+        public async Task<IActionResult> GetEnquiries()
         {
-            var list = _context.Enquiries.ToList();
-            return list;
+            var enquiries = await _context.Enquiries
+                .Where(e => !e.isArchived)
+                .OrderByDescending(e => e.createdDate)
+                .ToListAsync();
+
+            return Ok(enquiries);
+        }
+
+        [HttpGet("GetAllEnquiries")]
+        [Authorize(Roles = "Admin")]
+
+        public async Task<IActionResult> GetAllEnquiries()
+        {
+            var allEnquiries = await _context.Enquiries
+                .OrderByDescending(e => e.createdDate)
+                .ToListAsync();
+
+            return Ok(allEnquiries);
         }
 
         [HttpGet("GetEnquiryById/{enquiryId}")]
-        public ActionResult<EnquiryModel?> GetEnquiryById(int enquiryId)
+        public ActionResult<EnquiryModel> GetEnquiryById(int enquiryId)
         {
             var existingEnquiry = _context.Enquiries.SingleOrDefault(m => m.enquiryId == enquiryId);
             if (existingEnquiry == null)
@@ -170,6 +186,24 @@ namespace Enquiry.API.Controllers
             {
                 return StatusCode(500, new { message = "Error al enviar el correo.", error = ex.Message });
             }
+        }
+
+        [HttpPost("ArchiveEnquiry/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ArchiveEnquiry(int id)
+        {
+            var enquiry = await _context.Enquiries.FindAsync(id);
+            if (enquiry == null)
+                return NotFound();
+
+            if (enquiry.enquiryStatusId != 4) // Asegura que esté en Resolved
+                return BadRequest("Only resolved enquiries can be archived.");
+
+            enquiry.isArchived = true;
+            await _context.SaveChangesAsync();
+            await _hub.Clients.All.SendAsync("EnquiryChanged");
+
+            return Ok(new { message = "Enquiry archived successfully" });
         }
 
 

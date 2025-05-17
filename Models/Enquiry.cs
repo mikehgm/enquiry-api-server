@@ -25,8 +25,9 @@ namespace Enquiry.API.Models
 
         [Column(TypeName = "decimal(10,2)")]
         public decimal? costo { get; set; }
-
         public DateTime? dueDate { get; set; }
+        public bool isArchived { get; set; } = false;
+
 
     }
 }

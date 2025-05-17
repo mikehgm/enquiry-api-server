@@ -7,7 +7,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 namespace Enquiry.API.Controllers
@@ -40,9 +42,11 @@ namespace Enquiry.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login(UserLoginDto dto)
+        public async Task<IActionResult> Login([FromBody] UserLoginDto dto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+            var user = await _context.Users
+                .Include(u => u.RefreshTokens) // Asegúrate de incluir esto si usas EF
+                .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return Unauthorized("Invalid credentials");
@@ -50,9 +54,33 @@ namespace Enquiry.API.Controllers
             if (!user.IsConfirmed)
                 return Unauthorized("Account not confirmed");
 
-            var token = GenerateJwtToken(user);
-            return Ok(new { token, mustChangePassword = user.MustChangePassword });
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+
+            // Reemplaza la línea problemática con el siguiente código:
+            user.RefreshTokens = user.RefreshTokens
+                .Where(t => !(t.IsRevoked || t.Expires < DateTime.UtcNow))
+                .ToList();
+
+            // Guarda nuevo refresh token
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                Token = refreshToken,
+                Expires = DateTime.UtcNow.AddDays(7),
+                IsUsed = false,
+                IsRevoked = false
+            });
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                access_token = accessToken,
+                refresh_token = refreshToken,
+                mustChangePassword = user.MustChangePassword
+            });
         }
+
 
         private string GenerateJwtToken(User user)
         {
@@ -76,6 +104,11 @@ namespace Enquiry.API.Controllers
             return new JwtSecurityTokenHandler().WriteToken(jwt);
         }
 
+        private string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        }
+
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
@@ -97,6 +130,48 @@ namespace Enquiry.API.Controllers
 
             return Ok(new { message = "Contraseña actualizada correctamente." });
         }
+
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request)
+        {
+            var tokenFromDb = await _context.RefreshTokens
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
+
+            if (tokenFromDb == null ||
+                tokenFromDb.IsUsed ||
+                tokenFromDb.IsRevoked ||
+                tokenFromDb.Expires < DateTime.UtcNow)
+            {
+                return Unauthorized("Invalid or expired refresh token.");
+            }
+
+            // Marcar como usado
+            tokenFromDb.IsUsed = true;
+
+            var user = tokenFromDb.User;
+
+            // Generar nuevos tokens
+            var newAccessToken = GenerateJwtToken(user);
+            var newRefreshToken = GenerateRefreshToken();
+
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                Token = newRefreshToken,
+                Expires = DateTime.UtcNow.AddDays(7),
+                IsUsed = false,
+                IsRevoked = false
+            });
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                access_token = newAccessToken,
+                refresh_token = newRefreshToken
+            });
+        }
+
     }
 
 }
