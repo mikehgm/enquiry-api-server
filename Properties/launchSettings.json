@@ -1,20 +1,11 @@
 ﻿{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "http": {
+    "Enquiry.API": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": false,
-      "applicationUrl": "http://192.168.1.67:5051",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
-    },
-    "https": {
-      "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": false,
-      "applicationUrl": "https://192.168.1.67:7004;http://192.168.1.67:5051",
+      "launchBrowser": true,
+      "applicationUrl": "http://0.0.0.0:7004",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

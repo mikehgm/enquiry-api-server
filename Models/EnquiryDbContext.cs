@@ -14,6 +14,7 @@ namespace Enquiry.API.Models
         public DbSet<EnquiryModel> Enquiries { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<LoyalClient> LoyalClients { get; set; }
 
 
     }

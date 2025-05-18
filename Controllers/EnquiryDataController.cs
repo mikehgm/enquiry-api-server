@@ -109,7 +109,34 @@ namespace Enquiry.API.Controllers
 
             _context.Enquiries.Add(enquiry);
             await _context.SaveChangesAsync();
+
+            // Sincronizar cliente leal
+            var client = await _context.LoyalClients
+                .FirstOrDefaultAsync(c => c.Email == enquiry.email && c.Phone == enquiry.phone);
+
+            if (client != null)
+            {
+                client.TotalEnquiries += 1;
+                client.LastInteraction = DateTime.UtcNow;
+                client.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _context.LoyalClients.Add(new LoyalClient
+                {
+                    Name = enquiry.customerName,
+                    Email = enquiry.email,
+                    Phone = enquiry.phone,
+                    TotalEnquiries = 1,
+                    LastInteraction = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
             await _hub.Clients.All.SendAsync("EnquiryChanged");
+
 
             return Ok(enquiry);
         }
