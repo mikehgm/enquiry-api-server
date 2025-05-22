@@ -6,7 +6,7 @@ namespace Enquiry.API.Models
     public class LoyalClient
     {
         [Key]
-        public int Id { get; set; }
+        public int ClientId { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -24,8 +24,8 @@ namespace Enquiry.API.Models
 
         public DateTime? LastInteraction { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
     }
 }

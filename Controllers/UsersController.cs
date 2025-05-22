@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace Enquiry.API.Controllers
 {
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [ApiController]
     [EnableCors("allowCors")]
 

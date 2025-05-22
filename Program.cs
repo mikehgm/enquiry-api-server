@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Enquiry.API.Hubs;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,21 +23,15 @@ builder.Services.AddDbContext<EnquiryDbContext>(options =>
 // Configuración adicional del pipeline
 builder.Services.AddControllers();
 
-builder.Services.AddCors();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: "allowCors",
-        builder =>
-        {
-            builder.WithOrigins(
-                "http://localhost:4200", 
-                "https://localhost:4200",
-                "http://192.168.1.67:4200",
-                "https://192.168.1.67:4200")
-                   .AllowCredentials()
-                   .AllowAnyHeader()
-                   .AllowAnyMethod();
-        });
+    options.AddPolicy("allowCors", policy =>
+    {
+        policy.WithOrigins("http://192.168.1.67:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -70,13 +66,19 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
+app.UseRouting();
+
 app.UseCors("allowCors");
 
 app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.UseHttpsRedirection();
 
 app.MapControllers();
+app.MapHub<AppConfigHub>("/hubs/appconfig");
 app.MapHub<EnquiryHub>("/hubs/enquiry");
 app.Run();

@@ -22,7 +22,7 @@ namespace Enquiry.API.Models
         public bool IsConfirmed { get; set; } = false;
         public string? ConfirmationToken { get; set; }
         public bool MustChangePassword { get; set; } = false;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     }

@@ -60,7 +60,7 @@ namespace Enquiry.API.Controllers
         }
 
         [HttpGet("GetAllEnquiries")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
 
         public async Task<IActionResult> GetAllEnquiries()
         {
@@ -103,7 +103,7 @@ namespace Enquiry.API.Controllers
                 costo = dto.Costo,
                 dueDate = TryParseDate(dto.DueDate),
                 createdBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown",
-                createdDate = DateTime.UtcNow,
+                createdDate = DateTime.Now,
                 folio = await GenerateFolioAsync()
             };
 
@@ -117,8 +117,8 @@ namespace Enquiry.API.Controllers
             if (client != null)
             {
                 client.TotalEnquiries += 1;
-                client.LastInteraction = DateTime.UtcNow;
-                client.UpdatedAt = DateTime.UtcNow;
+                client.LastInteraction = DateTime.Now;
+                client.UpdatedAt = DateTime.Now;
             }
             else
             {
@@ -128,9 +128,9 @@ namespace Enquiry.API.Controllers
                     Email = enquiry.email,
                     Phone = enquiry.phone,
                     TotalEnquiries = 1,
-                    LastInteraction = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    LastInteraction = DateTime.Now,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
                 });
             }
 
@@ -162,7 +162,7 @@ namespace Enquiry.API.Controllers
             enquiry.costo = dto.Costo;
             enquiry.dueDate = TryParseDate(dto.DueDate);
             enquiry.updatedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
-            enquiry.updatedAt = DateTime.UtcNow;
+            enquiry.updatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
             await _hub.Clients.All.SendAsync("EnquiryChanged");
@@ -216,7 +216,7 @@ namespace Enquiry.API.Controllers
         }
 
         [HttpPost("ArchiveEnquiry/{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
         public async Task<IActionResult> ArchiveEnquiry(int id)
         {
             var enquiry = await _context.Enquiries.FindAsync(id);
@@ -233,10 +233,22 @@ namespace Enquiry.API.Controllers
             return Ok(new { message = "Enquiry archived successfully" });
         }
 
+        [HttpGet("GetArchivedEnquiries")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public IActionResult GetArchivedEnquiries()
+        {
+            var archived = _context.Enquiries
+                .Where(e => e.enquiryStatusId == 4 && e.isArchived)
+                .OrderByDescending(e => e.createdDate)
+                .ToList();
+
+            return Ok(archived);
+        }
+
 
         private async Task<string> GenerateFolioAsync()
         {
-            var today = DateTime.UtcNow.ToString("yyyyMMdd");
+            var today = DateTime.Now.ToString("yyyyMMdd");
             var countToday = await _context.Enquiries
                 .CountAsync(e => e.createdDate.Date == DateTime.Now.Date);
 
