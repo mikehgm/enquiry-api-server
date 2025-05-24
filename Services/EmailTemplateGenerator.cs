@@ -1,53 +1,56 @@
-﻿using Enquiry.API.Models;
+﻿using Enquiry.API.Dtos;
+using Enquiry.API.Models;
+using System.Diagnostics.Contracts;
 
 namespace Enquiry.API.Services
 {
     public static class EmailTemplateGenerator
     {
-        public static string GenerateTicketHtml(EnquiryModel enquiry)
+        public static string GenerateTicketHtml(EnquiryModel enquiry, AppConfigDto config)
         {
+            string pagadoLabel = enquiry.saldoPago.HasValue && enquiry.saldoPago == 0
+                ? "<h1 style='text-align:center;'>PAGADO</h1>"
+                : "";
+
             return $@"
-        <div style='max-width:350px; margin:auto; font-family:monospace; background-color:#fefefe; border-radius:8px; border:1px solid #ccc; padding:1rem; text-align:center;'>
+        <div style='max-width:280px; margin:auto; font-family:monospace; background-color:#fefefe; border-radius:8px; border:1px solid #ccc; padding:1rem; text-align:center;'>
             <div style='background-color:#343a40; color:#ffffff; padding:10px; border-radius:6px 6px 0 0;'>
-                <h4 style='margin:0;'>🧾 ENQUIRY TICKET</h4>
+                <h4 style='margin:0;'>🧾 {config.TicketTitle}</h4>
             </div>
             <div style='padding:10px;'>
-                <p>Company Name</p>
-                <p>Calle primera, el centro #1234, CP 12345, Ciudad, Estado</p>
-                <p>Sucursal 123</p>
-                <p><strong>Folio:</strong></p>
-                <h3>{enquiry.folio}</h3>
-                <p><strong>Cliente:</strong> {enquiry.customerName}</p>
-                <p><strong>Teléfono:</strong> {enquiry.phone}</p>
-                <p><strong>Email:</strong> {enquiry.email}</p>
+                <p>{config.CompanyName}</p>
+                <p>{config.CompanyAddress}</p>
+                <p>{config.CompanySucursal}</p>
+                <p><strong>{config.Folio}:</strong></p>
+                <h1>{enquiry.folio}</h1>
+                <p><strong>{config.Cliente}:</strong> {enquiry.customerName}</p>
+                <p><strong>{config.Telefono}:</strong> {enquiry.phone}</p>
+                <p><strong>{config.Email}:</strong> {enquiry.email}</p>
                 <hr style='margin:1rem 0;'>
-                <p><strong>Servicio:</strong> {GetTypeLabel(enquiry.enquiryTypeId)}</p>
-                <p><strong>Mensaje:</strong><br>{enquiry.message}</p>
+                <p><strong>{config.Servicio}:</strong> {enquiry.enquiryTypeName}</p>
+                <p><strong>{config.Mensaje}:</strong><br>{enquiry.message}</p>
                 <hr style='margin:1rem 0;'>
-                <p><strong>Costo:</strong></p>
-                <h3>${enquiry.costo?.ToString("F2")}</h3>
+
+                <p><strong>{config.Costo}:</strong> {enquiry.costo?.ToString("F2")}</p>
+
+                <p><strong>{config.Anticipo}:</strong> {enquiry.anticipo?.ToString("F2")}</p>
+
+                <p><strong>{config.Saldo}:</strong></p>
+                <h1>${ enquiry.saldoPago?.ToString("F2")}</h1>
+                {pagadoLabel}
+                <hr>
+
+                <p><strong>{config.Entrega}:</strong> {enquiry.dueDate?.ToString("dd/MM/yyyy")}</p>
+                <p><strong>{config.Atendio}:</strong> {enquiry.createdBy}</p>
+                <p><strong>{config.FechaCreacion}:</strong> {enquiry.createdDate.ToString("dd/MM/yyyy")}</p>
                 <hr style='margin:1rem 0;'>
-                <p><strong>Entrega:</strong> {enquiry.dueDate?.ToString("dd/MM/yyyy")}</p>
-                <p><strong>Atendió:</strong> {enquiry.createdBy}</p>
-                <p><strong>Fecha de creación:</strong> {enquiry.createdDate.ToString("dd/MM/yyyy")}</p>
-                <hr style='margin:1rem 0;'>
-                <p>Gracias por su preferencia</p>
-                <p>Para información de nuestros servicios puede visitar nuestra página web:</p>
-                <p><a href='https://www.dominio.com' target='_blank'>www.dominio.com</a></p>
+                <p>{config.CompanyThanks}</p>
+                <p>{config.CompanyInfo}</p>
+                <p><a href='https://www.dominio.com' target='_blank'>{config.CompanyWebsite}</a></p>
             </div>
         </div>";
         }
 
-        private static string GetTypeLabel(int typeId)
-        {
-            return typeId switch
-            {
-                1 => "Servicio A",
-                2 => "Servicio B",
-                3 => "Servicio C",
-                _ => "Otro servicio"
-            };
-        }
     }
 
 }

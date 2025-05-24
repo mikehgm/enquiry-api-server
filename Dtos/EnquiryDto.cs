@@ -4,7 +4,7 @@ namespace Enquiry.API.Dtos
 {
     public class EnquiryDto
     {
-        public int? EnquiryId { get; set; }  // útil para update
+        public int? EnquiryId { get; set; } 
 
         [Required]
         public int EnquiryTypeId { get; set; }
@@ -29,6 +29,8 @@ namespace Enquiry.API.Dtos
         public string? DueDate { get; set; }  // formato string 'yyyy-MM-dd'
 
         public decimal? Costo { get; set; }
+        public decimal? Anticipo { get; set; }
+        public decimal? SaldoPago { get; set; }
 
         // El folio, usuario y fechas no vienen del cliente
     }

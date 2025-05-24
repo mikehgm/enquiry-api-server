@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 
 namespace Enquiry.API.Controllers
 {
-    [Authorize]
     [Route("api/app-config")]
     [ApiController]
     [EnableCors("allowCors")]

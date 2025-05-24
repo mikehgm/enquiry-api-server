@@ -11,6 +11,7 @@ using System.Net.Mail;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using System.Net.Mime;
 
 namespace Enquiry.API.Controllers
 {
@@ -53,6 +54,8 @@ namespace Enquiry.API.Controllers
             return Ok(clients);
         }
 
+        // Fix for CS0103: Declare and initialize 'filePath' before its usage in the email sending logic.
+
         [HttpPost("send-promotion")]
         [RequestSizeLimit(10 * 1024 * 1024)]
         [Authorize(Roles = "Admin,SuperAdmin")]
@@ -74,6 +77,7 @@ namespace Enquiry.API.Controllers
                 return Conflict(new { message = "Ya se envió una promoción a este cliente recientemente por este método." });
 
             string? imageUrlToSave = null;
+            string? filePath = null; // Declare and initialize 'filePath' to null.
 
             // EMAIL
             if (method == "email")
@@ -95,10 +99,10 @@ namespace Enquiry.API.Controllers
 
                 var message = new MailMessage(fromEmail, dto.ToEmail)
                 {
-                    Subject = dto.Subject ?? "Promoción exclusiva para ti",
-                    Body = dto.Message,
-                    IsBodyHtml = true
+                    Subject = dto.Subject ?? "Promoción exclusiva para ti"
                 };
+
+                string htmlBody = dto.Message;
 
                 if (dto.Image != null && dto.Image.Length > 0)
                 {
@@ -106,7 +110,7 @@ namespace Enquiry.API.Controllers
                     Directory.CreateDirectory(uploadsPath);
 
                     var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(dto.Image.FileName)}";
-                    var filePath = Path.Combine(uploadsPath, fileName);
+                    filePath = Path.Combine(uploadsPath, fileName); // Assign the file path here.
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
@@ -114,6 +118,25 @@ namespace Enquiry.API.Controllers
                     }
 
                     imageUrlToSave = $"/uploads/promos/{fileName}";
+                }
+
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    var inlineLogo = new LinkedResource(filePath, MediaTypeNames.Image.Jpeg)
+                    {
+                        ContentId = "promoImage"
+                    };
+
+                    htmlBody += $"<br/><img src='cid:promoImage' style='max-width:100%; height:auto;'/>";
+
+                    var htmlView = AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html);
+                    htmlView.LinkedResources.Add(inlineLogo);
+                    message.AlternateViews.Add(htmlView);
+                }
+                else
+                {
+                    message.Body = htmlBody;
+                    message.IsBodyHtml = true;
                 }
 
                 await client.SendMailAsync(message);
